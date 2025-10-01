@@ -184,3 +184,29 @@ Open your browser:
 4. Push to your branch & open a Pull Request
 
 > ✅ Please follow existing code style, include tests, and ensure linting passes.
+
+
+TO RUN THE PROJECT 
+
+To run the project:
+Terminal 1: Start the Backend Server
+1.	Navigate to the server directory:
+bash
+cd server
+2.	Install dependencies:
+bash
+npm install
+3.	Start the server:
+bash
+npm start
+Terminal 2: Start the Frontend Application
+1.	Navigate to the project directory:
+bash
+cd project
+2.	Install dependencies:
+bash
+npm install
+3.	Start the Vite development server:
+bash
+npm run dev
+After running these commands, the frontend should be accessible in your browser at the local address provided by Vite (usually http://localhost:5173).
