@@ -1,26 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Phone, MessageSquare, MapPin, Clock, Car, Star } from 'lucide-react';
 import { get } from '../utils/api';
 import MapView from '../components/MapView';
 import { geocodeAddress } from '../utils/locationService';
 
 const RideTracking = () => {
   const [rideStatus, setRideStatus] = useState('finding'); // finding, assigned, pickup, enroute, completed, cancelled
-  const [estimatedTime, setEstimatedTime] = useState(5);
+  const [estimatedTime] = useState(2);
+  const [findingElapsedSeconds, setFindingElapsedSeconds] = useState(0);
   const navigate = useNavigate();
   const lastBookingId = localStorage.getItem('lastBookingId');
   const [pickupCoords, setPickupCoords] = useState<[number, number] | null>(null);
   const [destCoords, setDestCoords] = useState<[number, number] | null>(null);
-
-  const driver = {
-    name: 'John Smith',
-    rating: 4.95,
-    trips: 1234,
-    car: 'Toyota Camry',
-    plate: 'ABC 123',
-    phone: '+1 (555) 123-4567'
-  };
 
   useEffect(() => {
     let timer: number | undefined;
@@ -59,6 +50,17 @@ const RideTracking = () => {
     timer = window.setInterval(poll, 4000);
     return () => { if (timer) window.clearInterval(timer); };
   }, [lastBookingId]);
+
+  useEffect(() => {
+    if (rideStatus === 'finding') {
+      setFindingElapsedSeconds(0);
+      const interval = window.setInterval(() => {
+        setFindingElapsedSeconds((prev) => prev + 1);
+      }, 1000);
+      return () => window.clearInterval(interval);
+    }
+    setFindingElapsedSeconds(0);
+  }, [rideStatus]);
 
   const getStatusMessage = () => {
     switch (rideStatus) {
@@ -104,7 +106,7 @@ const RideTracking = () => {
           {/* Map Section */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-lg shadow-md overflow-hidden p-4">
-              <MapView pickup={pickupCoords || undefined} destination={destCoords || undefined} />
+              <MapView pickup={pickupCoords || null} destination={destCoords || null} />
             </div>
           </div>
 
@@ -119,6 +121,11 @@ const RideTracking = () => {
                 {rideStatus !== 'completed' && (
                   <p className="text-gray-600">
                     Estimated time: {estimatedTime} minutes
+                  </p>
+                )}
+                {rideStatus === 'finding' && findingElapsedSeconds >= 120 && (
+                  <p className="mt-3 text-sm text-red-600 font-medium">
+                    Currently our drivers are not available. Please try again in a few minutes.
                   </p>
                 )}
               </div>
@@ -156,38 +163,13 @@ const RideTracking = () => {
               </div>
             </div>
 
-            {/* Driver Details */}
+            {/* Driver details placeholder */}
             {rideStatus !== 'finding' && (
               <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-lg font-semibold mb-4">Your driver</h3>
-                <div className="flex items-center space-x-4 mb-4">
-                  <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
-                    <span className="text-2xl">👨‍💼</span>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-lg">{driver.name}</h4>
-                    <div className="flex items-center space-x-1 mb-1">
-                      <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                      <span className="text-sm text-gray-600">
-                        {driver.rating} ({driver.trips.toLocaleString()} trips)
-                      </span>
-                    </div>
-                    <p className="text-gray-600 text-sm">
-                      {driver.car} • {driver.plate}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex space-x-3">
-                  <button className="flex-1 bg-black text-white py-3 px-4 rounded-md hover:bg-gray-800 transition-colors duration-200 flex items-center justify-center space-x-2">
-                    <Phone className="h-4 w-4" />
-                    <span>Call</span>
-                  </button>
-                  <button className="flex-1 border border-gray-300 text-gray-700 py-3 px-4 rounded-md hover:bg-gray-50 transition-colors duration-200 flex items-center justify-center space-x-2">
-                    <MessageSquare className="h-4 w-4" />
-                    <span>Message</span>
-                  </button>
-                </div>
+                <h3 className="text-lg font-semibold mb-2">Driver details</h3>
+                <p className="text-gray-600 text-sm">
+                  Driver information will appear here as soon as a driver accepts your ride.
+                </p>
               </div>
             )}
 

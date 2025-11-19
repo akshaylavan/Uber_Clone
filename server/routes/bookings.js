@@ -5,6 +5,32 @@ const { sendMail } = require('../config/mail');
 
 module.exports = router = express.Router();
 
+const buildMailContent = (user, { rideType, description, capacity, price, estimatedTime, pickupAddress, destinationAddress, bookingTime }) => {
+  const formattedCreatedAt = bookingTime
+    ? new Date(bookingTime).toLocaleString()
+    : new Date().toLocaleString();
+
+  const subject = 'Your Uber Clone booking details';
+  const body = `Hi ${user?.firstName || 'there'},\n\n` +
+    `Thanks for booking a ride! Here are your trip details:\n` +
+    `• Pickup: ${pickupAddress}\n` +
+    `• Destination: ${destinationAddress}\n` +
+    `• Ride Type: ${rideType}${description ? ` (${description})` : ''}\n` +
+    `• Booking Time: ${formattedCreatedAt}\n` +
+    `• Estimated Time: ${estimatedTime || 'Unavailable'}\n` +
+    `• Capacity: ${capacity || 'N/A'}\n` +
+    `• Price: ${price}\n\n` +
+    `Have a great ride!`;
+
+  return { subject, body };
+};
+
+const sendBookingConfirmationEmail = async (user, details) => {
+  if (!user?.email) return;
+  const { subject, body } = buildMailContent(user, details);
+  await sendMail({ to: user.email, subject, text: body });
+};
+
 router.post('/', authenticateToken, async (req, res) => {
   try {
     const { rideType, description, capacity, price, estimatedTime, pickupAddress, destinationAddress } = req.body;
@@ -21,30 +47,33 @@ router.post('/', authenticateToken, async (req, res) => {
       pickupAddress,
       destinationAddress,
     });
-    const user = req.user;
-    if (user?.email) {
-      const formattedCreatedAt = booking.createdAt ? booking.createdAt.toLocaleString() : new Date().toLocaleString();
-      const mailSubject = 'Your Uber Clone booking details';
-      const mailBody = `Hi ${user.firstName || 'there'},\n\n` +
-        `Thanks for booking a ride! Here are your trip details:\n` +
-        `• Pickup: ${pickupAddress}\n` +
-        `• Destination: ${destinationAddress}\n` +
-        `• Ride Type: ${rideType}${description ? ` (${description})` : ''}\n` +
-        `• Booking Time: ${formattedCreatedAt}\n` +
-        `• Estimated Time: ${estimatedTime || 'Unavailable'}\n` +
-        `• Capacity: ${capacity || 'N/A'}\n` +
-        `• Price: ${price}\n\n` +
-        `Have a great ride!`;
-      await sendMail({
-        to: user.email,
-        subject: mailSubject,
-        text: mailBody,
-      });
-    }
     return res.status(201).json(booking);
   } catch (err) {
     console.error('Create booking error:', err);
     return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+router.post('/send-confirmation-email', authenticateToken, async (req, res) => {
+  try {
+    const { rideType, description, capacity, price, estimatedTime, pickupAddress, destinationAddress, bookingTime } = req.body;
+    if (!rideType || !pickupAddress || !destinationAddress) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+    await sendBookingConfirmationEmail(req.user, {
+      rideType,
+      description,
+      capacity,
+      price,
+      estimatedTime,
+      pickupAddress,
+      destinationAddress,
+      bookingTime,
+    });
+    return res.status(200).json({ message: 'Confirmation email sent' });
+  } catch (err) {
+    console.error('Send confirmation email error:', err);
+    return res.status(500).json({ message: 'Failed to send confirmation email' });
   }
 });
 
