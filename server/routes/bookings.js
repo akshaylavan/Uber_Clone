@@ -1,12 +1,13 @@
 const express = require('express');
 const Booking = require('../models/Booking');
 const { authenticateToken } = require('../middleware/auth');
+const { sendMail } = require('../config/mail');
 
-const router = express.Router();
+module.exports = router = express.Router();
 
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { rideType, description, capacity, price, pickupAddress, destinationAddress } = req.body;
+    const { rideType, description, capacity, price, estimatedTime, pickupAddress, destinationAddress } = req.body;
     if (!rideType || !price || !pickupAddress || !destinationAddress) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
@@ -16,9 +17,30 @@ router.post('/', authenticateToken, async (req, res) => {
       description,
       capacity,
       price,
+      estimatedTime,
       pickupAddress,
       destinationAddress,
     });
+    const user = req.user;
+    if (user?.email) {
+      const formattedCreatedAt = booking.createdAt ? booking.createdAt.toLocaleString() : new Date().toLocaleString();
+      const mailSubject = 'Your Uber Clone booking details';
+      const mailBody = `Hi ${user.firstName || 'there'},\n\n` +
+        `Thanks for booking a ride! Here are your trip details:\n` +
+        `• Pickup: ${pickupAddress}\n` +
+        `• Destination: ${destinationAddress}\n` +
+        `• Ride Type: ${rideType}${description ? ` (${description})` : ''}\n` +
+        `• Booking Time: ${formattedCreatedAt}\n` +
+        `• Estimated Time: ${estimatedTime || 'Unavailable'}\n` +
+        `• Capacity: ${capacity || 'N/A'}\n` +
+        `• Price: ${price}\n\n` +
+        `Have a great ride!`;
+      await sendMail({
+        to: user.email,
+        subject: mailSubject,
+        text: mailBody,
+      });
+    }
     return res.status(201).json(booking);
   } catch (err) {
     console.error('Create booking error:', err);
@@ -115,7 +137,67 @@ router.put('/:id/cancel', authenticateToken, async (req, res) => {
   }
 });
 
+// Get estimated ride time for a route
+router.post('/estimate-time', async (req, res) => {
+  try {
+    const { pickupLat, pickupLng, destLat, destLng, rideType = 'UberX' } = req.body;
+
+    if (!pickupLat || !pickupLng || !destLat || !destLng) {
+      return res.status(400).json({ message: 'Missing required coordinates' });
+    }
+
+    // Calculate distance using Haversine formula
+    const R = 6371; // Earth's radius in kilometers
+    const lat1Rad = (pickupLat * Math.PI) / 180;
+    const lat2Rad = (destLat * Math.PI) / 180;
+    const deltaLatRad = ((destLat - pickupLat) * Math.PI) / 180;
+    const deltaLngRad = ((destLng - pickupLng) * Math.PI) / 180;
+
+    const a =
+      Math.sin(deltaLatRad / 2) * Math.sin(deltaLatRad / 2) +
+      Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.sin(deltaLngRad / 2) * Math.sin(deltaLngRad / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+
+    // Base speeds in km/h for different ride types
+    const baseSpeeds = {
+      'UberX': 35,
+      'Comfort': 40,
+      'UberXL': 32,
+      'Black': 45,
+    };
+
+    const baseSpeed = baseSpeeds[rideType] || baseSpeeds['UberX'];
+    const trafficFactor = 1.3;
+    const pickupBuffer = 4;
+
+    const drivingTimeHours = distance / baseSpeed;
+    const drivingTimeMinutes = drivingTimeHours * 60;
+    const totalTimeMinutes = (drivingTimeMinutes * trafficFactor) + pickupBuffer;
+
+    const estimatedMinutes = Math.round(totalTimeMinutes);
+
+    let estimatedTime;
+    if (estimatedMinutes < 60) {
+      estimatedTime = `${estimatedMinutes} min`;
+    } else {
+      const hours = Math.floor(estimatedMinutes / 60);
+      const remainingMinutes = estimatedMinutes % 60;
+      estimatedTime = remainingMinutes === 0
+        ? `${hours} hr`
+        : `${hours} hr ${remainingMinutes} min`;
+    }
+
+    return res.json({
+      distance: Math.round(distance * 100) / 100, // Round to 2 decimal places
+      estimatedTime,
+      estimatedMinutes
+    });
+  } catch (err) {
+    console.error('Estimate time error:', err);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 module.exports = router;
-
-
-

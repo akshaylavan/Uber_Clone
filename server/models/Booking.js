@@ -8,6 +8,7 @@ const BookingSchema = new mongoose.Schema(
     description: { type: String },
     capacity: { type: String },
     price: { type: String, required: true },
+    estimatedTime: { type: String },
     pickupAddress: { type: String, required: true },
     destinationAddress: { type: String, required: true },
     status: { type: String, enum: ['requested', 'accepted', 'in_progress', 'completed', 'cancelled'], default: 'requested' },

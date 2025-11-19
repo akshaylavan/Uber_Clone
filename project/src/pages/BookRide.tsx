@@ -7,6 +7,7 @@ import { useBrowserGeolocation } from '../hooks/useBrowserGeolocation';
 import { geocodeAddress, reverseGeocode } from '../utils/locationService';
 import { useLocationContext } from '../context/LocationContext';
 import { useUser } from '../context/UserContext';
+import { getEstimatedRideTime, calculateDistance } from '../utils/rideEstimation';
 
 interface RideOption {
   id: number;
@@ -15,6 +16,7 @@ interface RideOption {
   capacity: string;
   price: string;
   estimatedTime: string;
+  distance?: number;
   icon: string;
 }
 
@@ -104,44 +106,124 @@ const BookRide = () => {
     return [center.lat + dLat, center.lng + dLng];
   };
 
-  const rideOptions = [
-    {
-      id: 1,
-      type: 'UberX',
-      description: 'Affordable, everyday rides',
-      capacity: '4',
-      price: '₹950',
-      estimatedTime: '3 min',
-      icon: '🚗'
-    },
-    {
-      id: 2,
-      type: 'Comfort',
-      description: 'Newer cars with extra legroom',
-      capacity: '4',
-      price: '₹1,265',
-      estimatedTime: '5 min',
-      icon: '🚙'
-    },
-    {
-      id: 3,
-      type: 'UberXL',
-      description: 'Affordable rides for groups up to 6',
-      capacity: '6',
-      price: '₹1,455',
-      estimatedTime: '8 min',
-      icon: '🚐'
-    },
-    {
-      id: 4,
-      type: 'Black',
-      description: 'Premium rides in luxury cars',
-      capacity: '4',
-      price: '₹2,185',
-      estimatedTime: '4 min',
-      icon: '🏎️'
+  const rideOptions = useMemo(() => {
+    const pickupCoords = pickupOverride || pickupArray;
+    const destCoords = destOverride;
+
+    // Early return when coordinates are not available
+    if (!destCoords || !pickupCoords) {
+      return [
+        {
+          id: 1,
+          type: 'UberX',
+          description: 'Affordable, everyday rides',
+          capacity: '4',
+          price: '₹950',
+          estimatedTime: 'Calculating...',
+          distance: undefined,
+          icon: '🚗'
+        },
+        {
+          id: 2,
+          type: 'Comfort',
+          description: 'Newer cars with extra legroom',
+          capacity: '4',
+          price: '₹1,265',
+          estimatedTime: 'Calculating...',
+          distance: undefined,
+          icon: '🚙'
+        },
+        {
+          id: 3,
+          type: 'UberXL',
+          description: 'Affordable rides for groups up to 6',
+          capacity: '6',
+          price: '₹1,455',
+          estimatedTime: 'Calculating...',
+          distance: undefined,
+          icon: '🚐'
+        },
+        {
+          id: 4,
+          type: 'Black',
+          description: 'Premium rides in luxury cars',
+          capacity: '4',
+          price: '₹2,185',
+          estimatedTime: 'Calculating...',
+          distance: undefined,
+          icon: '🏎️'
+        }
+      ];
     }
-  ];
+
+    // Calculate distance once for all ride types
+    const distance = calculateDistance(
+      { latitude: pickupCoords[0], longitude: pickupCoords[1] },
+      { latitude: destCoords[0], longitude: destCoords[1] }
+    );
+
+    const calculatedDistance = Math.round(distance * 100) / 100;
+
+    // Return ride options with calculated times and distance
+    return [
+      {
+        id: 1,
+        type: 'UberX',
+        description: 'Affordable, everyday rides',
+        capacity: '4',
+        price: '₹950',
+        estimatedTime: getEstimatedRideTime(
+          { latitude: pickupCoords[0], longitude: pickupCoords[1] },
+          { latitude: destCoords[0], longitude: destCoords[1] },
+          'UberX'
+        ),
+        distance: calculatedDistance,
+        icon: '🚗'
+      },
+      {
+        id: 2,
+        type: 'Comfort',
+        description: 'Newer cars with extra legroom',
+        capacity: '4',
+        price: '₹1,265',
+        estimatedTime: getEstimatedRideTime(
+          { latitude: pickupCoords[0], longitude: pickupCoords[1] },
+          { latitude: destCoords[0], longitude: destCoords[1] },
+          'Comfort'
+        ),
+        distance: calculatedDistance,
+        icon: '🚙'
+      },
+      {
+        id: 3,
+        type: 'UberXL',
+        description: 'Affordable rides for groups up to 6',
+        capacity: '6',
+        price: '₹1,455',
+        estimatedTime: getEstimatedRideTime(
+          { latitude: pickupCoords[0], longitude: pickupCoords[1] },
+          { latitude: destCoords[0], longitude: destCoords[1] },
+          'UberXL'
+        ),
+        distance: calculatedDistance,
+        icon: '🚐'
+      },
+      {
+        id: 4,
+        type: 'Black',
+        description: 'Premium rides in luxury cars',
+        capacity: '4',
+        price: '₹2,185',
+        estimatedTime: getEstimatedRideTime(
+          { latitude: pickupCoords[0], longitude: pickupCoords[1] },
+          { latitude: destCoords[0], longitude: destCoords[1] },
+          'Black'
+        ),
+        distance: calculatedDistance,
+        icon: '🏎️'
+      }
+    ];
+  }, [destOverride, pickupOverride, pickupArray]);
 
   const handleRideSelection = (ride: RideOption) => {
     setSelectedRide(ride);
@@ -150,7 +232,7 @@ const BookRide = () => {
 
   const handleBookRide = async () => {
     if (!selectedRide) return;
-    
+
     const token = localStorage.getItem('token');
     if (!token) {
       alert('Please log in to book a ride');
@@ -161,7 +243,7 @@ const BookRide = () => {
     try {
       const response = await fetch('http://localhost:5000/api/bookings', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
@@ -170,6 +252,7 @@ const BookRide = () => {
           description: selectedRide.description,
           capacity: selectedRide.capacity,
           price: selectedRide.price,
+          estimatedTime: selectedRide.estimatedTime,
           pickupAddress: user?.location?.address || pickupQuery || `${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}`,
           destinationAddress: destQuery || 'Destination not set',
         }),
@@ -199,6 +282,28 @@ const BookRide = () => {
     }
   };
 
+  // Calculate overall trip info for preview
+  const tripInfo = useMemo(() => {
+    if (destOverride && (pickupOverride || pickupArray)) {
+      const pickupCoords = pickupOverride || pickupArray;
+      const distance = calculateDistance(
+        { latitude: pickupCoords[0], longitude: pickupCoords[1] },
+        { latitude: destOverride[0], longitude: destOverride[1] }
+      );
+
+      // Use average speed for general estimate (around 35 km/h)
+      const avgTimeInMinutes = Math.round((distance / 35) * 60) + 4; // +4 min for pickup
+
+      return {
+        distance: Math.round(distance * 100) / 100,
+        estimatedTime: avgTimeInMinutes < 60
+          ? `${avgTimeInMinutes} min`
+          : `${Math.floor(avgTimeInMinutes / 60)} hr ${avgTimeInMinutes % 60} min`
+      };
+    }
+    return null;
+  }, [destOverride, pickupOverride, pickupArray]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -225,12 +330,34 @@ const BookRide = () => {
                     <span className="text-sm text-gray-600">Pickup</span>
                   </div>
                   <p className="font-semibold mb-4">{pickupAddress}</p>
-                  
+
                   <div className="flex items-center space-x-3">
                     <MapPin className="h-5 w-5 text-red-500" />
                     <span className="text-sm text-gray-600">Destination</span>
                   </div>
                   <p className="font-semibold">{destinationAddress}</p>
+
+                  {/* Trip Preview */}
+                  {tripInfo && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className="flex items-center space-x-1">
+                            <Clock className="h-4 w-4 text-blue-500" />
+                            <span className="text-sm font-medium text-gray-700">
+                              Est. {tripInfo.estimatedTime}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <Navigation className="h-4 w-4 text-gray-500" />
+                            <span className="text-sm text-gray-500">
+                              {tripInfo.distance} km
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-3">
@@ -255,6 +382,12 @@ const BookRide = () => {
                                 <Clock className="h-4 w-4 text-gray-500" />
                                 <span className="text-sm text-gray-500">{ride.estimatedTime}</span>
                               </div>
+                              {ride.distance !== undefined && (
+                                <div className="flex items-center space-x-1">
+                                  <Navigation className="h-4 w-4 text-gray-500" />
+                                  <span className="text-sm text-gray-500">{ride.distance} km</span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -270,7 +403,7 @@ const BookRide = () => {
               <div className="space-y-6">
                 <div className="bg-white rounded-lg shadow-md p-6">
                   <h2 className="text-xl font-semibold mb-4">Ride Details</h2>
-                  
+
                   <div className="flex items-center space-x-4 mb-6">
                     <span className="text-3xl">{selectedRide?.icon}</span>
                     <div>
@@ -291,6 +424,10 @@ const BookRide = () => {
                       <div className="flex items-center space-x-3">
                         <MapPin className="h-5 w-5 text-red-500" />
                         <span className="font-medium">{destinationAddress}</span>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <Clock className="h-5 w-5 text-blue-500" />
+                        <span className="font-medium">Estimated time: {selectedRide?.estimatedTime}</span>
                       </div>
                     </div>
                   </div>
