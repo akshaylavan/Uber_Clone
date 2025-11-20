@@ -26,4 +26,14 @@ const authenticateToken = async (req, res, next) => {
   }
 };
 
-module.exports = { authenticateToken };
+const requireRoles = (...roles) => (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Not authenticated' });
+  }
+  if (!roles.includes(req.user.userType)) {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+  next();
+};
+
+module.exports = { authenticateToken, requireRoles };

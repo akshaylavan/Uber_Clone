@@ -28,7 +28,13 @@ const Login = () => {
       localStorage.setItem('userLastName', data.user.lastName || '');
       localStorage.setItem('userName', `${data.user.firstName || ''} ${data.user.lastName || ''}`.trim());
       
-      navigate(data.user.userType === 'driver' ? '/driver' : '/rider');
+      if (data.user.userType === 'driver') {
+        navigate('/driver');
+      } else if (data.user.userType === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/rider');
+      }
     } catch (error) {
       const message = (error as Error)?.message || 'Login failed';
       alert(message);
@@ -69,6 +75,7 @@ const Login = () => {
               >
                 <option value="rider">I'm a rider</option>
                 <option value="driver">I'm a driver</option>
+                <option value="admin">I'm an admin</option>
               </select>
             </div>
             

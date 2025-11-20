@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import LandingPage from './pages/LandingPage';
@@ -10,6 +9,7 @@ import BookRide from './pages/BookRide';
 import RideTracking from './pages/RideTracking';
 import Profile from './pages/Profile';
 import RideHistory from './pages/RideHistory';
+import AdminDashboard from './pages/AdminDashboard';
 
 function App() {
   return (
@@ -26,6 +26,7 @@ function App() {
           <Route path="/ride-tracking" element={<RideTracking />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/history" element={<RideHistory />} />
+          <Route path="/admin" element={<AdminDashboard />} />
         </Routes>
       </div>
     </Router>
