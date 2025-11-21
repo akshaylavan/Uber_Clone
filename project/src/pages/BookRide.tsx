@@ -17,8 +17,26 @@ interface RideOption {
   price: string;
   estimatedTime: string;
   distance?: number;
+  fareAmount: number;
   icon: string;
 }
+
+const PRICE_PER_KM: Record<string, number> = {
+  UberX: 10,
+  Comfort: 15,
+  UberXL: 20,
+  Black: 25,
+};
+
+const formatFare = (amount: number) => `₹${Math.round(amount)}`;
+
+const calculateRideFare = (distanceKm: number, rideType: string) => {
+  if (!distanceKm || distanceKm <= 0) {
+    return 0;
+  }
+  const rate = PRICE_PER_KM[rideType] || PRICE_PER_KM['UberX'];
+  return distanceKm * rate;
+};
 
 const BookRide = () => {
   const [step, setStep] = useState(1);
@@ -118,9 +136,10 @@ const BookRide = () => {
           type: 'UberX',
           description: 'Affordable, everyday rides',
           capacity: '4',
-          price: '₹950',
+          price: '₹0',
           estimatedTime: 'Calculating...',
           distance: undefined,
+          fareAmount: 0,
           icon: '🚗'
         },
         {
@@ -128,9 +147,10 @@ const BookRide = () => {
           type: 'Comfort',
           description: 'Newer cars with extra legroom',
           capacity: '4',
-          price: '₹1,265',
+          price: '₹0',
           estimatedTime: 'Calculating...',
           distance: undefined,
+          fareAmount: 0,
           icon: '🚙'
         },
         {
@@ -138,9 +158,10 @@ const BookRide = () => {
           type: 'UberXL',
           description: 'Affordable rides for groups up to 6',
           capacity: '6',
-          price: '₹1,455',
+          price: '₹0',
           estimatedTime: 'Calculating...',
           distance: undefined,
+          fareAmount: 0,
           icon: '🚐'
         },
         {
@@ -148,9 +169,10 @@ const BookRide = () => {
           type: 'Black',
           description: 'Premium rides in luxury cars',
           capacity: '4',
-          price: '₹2,185',
+          price: '₹0',
           estimatedTime: 'Calculating...',
           distance: undefined,
+          fareAmount: 0,
           icon: '🏎️'
         }
       ];
@@ -171,13 +193,14 @@ const BookRide = () => {
         type: 'UberX',
         description: 'Affordable, everyday rides',
         capacity: '4',
-        price: '₹950',
+        price: formatFare(calculateRideFare(calculatedDistance, 'UberX')),
         estimatedTime: getEstimatedRideTime(
           { latitude: pickupCoords[0], longitude: pickupCoords[1] },
           { latitude: destCoords[0], longitude: destCoords[1] },
           'UberX'
         ),
         distance: calculatedDistance,
+        fareAmount: calculateRideFare(calculatedDistance, 'UberX'),
         icon: '🚗'
       },
       {
@@ -185,13 +208,14 @@ const BookRide = () => {
         type: 'Comfort',
         description: 'Newer cars with extra legroom',
         capacity: '4',
-        price: '₹1,265',
+        price: formatFare(calculateRideFare(calculatedDistance, 'Comfort')),
         estimatedTime: getEstimatedRideTime(
           { latitude: pickupCoords[0], longitude: pickupCoords[1] },
           { latitude: destCoords[0], longitude: destCoords[1] },
           'Comfort'
         ),
         distance: calculatedDistance,
+        fareAmount: calculateRideFare(calculatedDistance, 'Comfort'),
         icon: '🚙'
       },
       {
@@ -199,13 +223,14 @@ const BookRide = () => {
         type: 'UberXL',
         description: 'Affordable rides for groups up to 6',
         capacity: '6',
-        price: '₹1,455',
+        price: formatFare(calculateRideFare(calculatedDistance, 'UberXL')),
         estimatedTime: getEstimatedRideTime(
           { latitude: pickupCoords[0], longitude: pickupCoords[1] },
           { latitude: destCoords[0], longitude: destCoords[1] },
           'UberXL'
         ),
         distance: calculatedDistance,
+        fareAmount: calculateRideFare(calculatedDistance, 'UberXL'),
         icon: '🚐'
       },
       {
@@ -213,13 +238,14 @@ const BookRide = () => {
         type: 'Black',
         description: 'Premium rides in luxury cars',
         capacity: '4',
-        price: '₹2,185',
+        price: formatFare(calculateRideFare(calculatedDistance, 'Black')),
         estimatedTime: getEstimatedRideTime(
           { latitude: pickupCoords[0], longitude: pickupCoords[1] },
           { latitude: destCoords[0], longitude: destCoords[1] },
           'Black'
         ),
         distance: calculatedDistance,
+        fareAmount: calculateRideFare(calculatedDistance, 'Black'),
         icon: '🏎️'
       }
     ];
@@ -232,6 +258,14 @@ const BookRide = () => {
 
   const handleBookRide = async () => {
     if (!selectedRide) return;
+
+    const currentPickupCoords = pickupOverride || pickupArray;
+    const currentDestCoords = destOverride;
+
+    if (!currentDestCoords || !currentPickupCoords || !selectedRide.distance) {
+      alert('Please select valid pickup and destination locations to compute the fare.');
+      return;
+    }
 
     const token = localStorage.getItem('token');
     if (!token) {
@@ -251,10 +285,18 @@ const BookRide = () => {
           rideType: selectedRide.type,
           description: selectedRide.description,
           capacity: selectedRide.capacity,
-          price: selectedRide.price,
           estimatedTime: selectedRide.estimatedTime,
           pickupAddress: user?.location?.address || pickupQuery || `${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}`,
           destinationAddress: destQuery || 'Destination not set',
+          distanceKm: selectedRide.distance,
+          pickupCoordinates: {
+            latitude: currentPickupCoords[0],
+            longitude: currentPickupCoords[1],
+          },
+          destinationCoordinates: {
+            latitude: currentDestCoords[0],
+            longitude: currentDestCoords[1],
+          },
         }),
       });
 

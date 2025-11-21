@@ -8,6 +8,7 @@ const BookingSchema = new mongoose.Schema(
     description: { type: String },
     capacity: { type: String },
     price: { type: String, required: true },
+    distanceKm: { type: Number },
     estimatedTime: { type: String },
     pickupAddress: { type: String, required: true },
     destinationAddress: { type: String, required: true },
